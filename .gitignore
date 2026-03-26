@@ -1,0 +1,8 @@
+# Credenciais do Google
+credenciais_oauth.json
+credenciais_service.json
+token.json
+__pycache__/
+venv/
+tempCodeRunnerFile.py
+.env
