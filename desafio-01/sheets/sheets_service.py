@@ -47,6 +47,9 @@ def buscar_por_cpf(cpf):
     dados = sheet.get_all_values()
     cpf_limpo = re.sub(r"\D", "", cpf)
 
+    if not cpf_limpo.isdigit():
+        return None 
+
     for linha in dados[1:]:
         cpf_sheet = linha[2]
         cpf_sheet_limpo = re.sub(r"\D", "", cpf_sheet)
@@ -61,6 +64,9 @@ def buscar_por_nis(nis):
     dados = sheet.get_all_values()
     nis_limpo = re.sub(r"\D", "", nis)
 
+    if not nis_limpo.isdigit():
+        return None 
+    
     for linha in dados[1:]:
         nis_sheet = linha[3]
         nis_sheet_limpo = re.sub(r"\D", "", nis_sheet)

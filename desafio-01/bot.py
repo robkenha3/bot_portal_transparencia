@@ -191,7 +191,7 @@ def rodar_bot(consultar):
                 dados_finais.append({
                     "nome": nome,
                     "cpf": cpf,
-                    "nis": "N/A",
+                    "nis": "",
                     "location": localidade,
                     "recurso_tipo": titulo,
                     "valor_total_recebido": valor_total_recebido,
