@@ -54,7 +54,7 @@ def buscar_por_cpf(cpf):
         cpf_sheet = linha[2]
         cpf_sheet_limpo = re.sub(r"\D", "", cpf_sheet)
 
-        if cpf_sheet_limpo == cpf_limpo:
+        if cpf_sheet_limpo in cpf_limpo:
             return linha[5]
 
     return None

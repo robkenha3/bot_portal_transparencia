@@ -204,6 +204,7 @@ playwright install
 Após instalar as dependências, execute o servidor FastAPI com o comando:
 
 ```bash
+cd desafio-01
 uvicorn api.main:app --reload
 ```
 
@@ -294,6 +295,12 @@ GET /pessoafisica/nome?nome=<nome_da_pessoa>
 
 ```bash
 GET /pessoafisica/cpf?cpf=<cpf_da_pessoa>
+```
+
+### Consulta por NIS
+
+```bash
+GET /pessoafisica/nis?nis=<nis_da_pessoa>
 ```
 ### Exemplo de Resposta
 

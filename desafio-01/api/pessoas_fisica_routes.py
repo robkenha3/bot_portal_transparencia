@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks
-from ..bot import rodar_bot
-from ..drive.drive_service import upload_json, baixar_json, extrair_file_id
-from ..sheets.sheets_service import salvar_no_sheets, buscar_por_nome, buscar_por_cpf, buscar_por_nis
+from bot import rodar_bot
+from drive.drive_service import upload_json, baixar_json, extrair_file_id
+from sheets.sheets_service import salvar_no_sheets, buscar_por_nome, buscar_por_cpf, buscar_por_nis
 import uuid
 
 pessoa_fisica_router = APIRouter(prefix="/pessoafisica", tags=["Pessoa Fisica"])

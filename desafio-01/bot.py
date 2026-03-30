@@ -41,6 +41,165 @@ def rodar_bot(consultar):
             return {"erro": "Não foi possível retornar os dados no tempo de resposta solicitado"}
 
         return {"erro": f"Foram encontrados 0 resultados para o termo {consultar}"}
+    
+    def abrir_detalhe(button):
+        button.click()
+        pagina.wait_for_load_state("networkidle")
+        captcha_freeze()
+    
+    def dados_card_tipo1(titulo, linha_valor):
+        try:
+            if titulo == AUXILIO_EMERGENCIAL:
+                return {
+                    "mes_disponibilizacao": linha_valor[0],
+                    "parcela": linha_valor[1],
+                    "uf": linha_valor[2],
+                    "municipio": linha_valor[3],
+                    "enquadramento": linha_valor[4],
+                    "valor": linha_valor[5],
+                    "observacao": linha_valor[6]
+                }
+
+            elif titulo == BENEFICIARIO_BOLSA_FAMILIA:
+                return {
+                    "mes_folha": linha_valor[0],
+                    "mes_referencia": linha_valor[1],
+                    "uf": linha_valor[2],
+                    "municipio": linha_valor[3],
+                    "quantidade_dependentes": linha_valor[4],
+                    "valor": linha_valor[5]
+                }
+
+            else:
+                try:
+                    return {
+                        "mes_folha": linha_valor[0],
+                        "mes_referencia": linha_valor[1],
+                        "uf": linha_valor[2],
+                        "municipio": linha_valor[3],
+                        "valor_parcela": linha_valor[4]
+                    }
+                except Exception as e:                 
+                    print(f"Dados nao correspondente para {AUXILIO_EMERGENCIAL}, {BENEFICIARIO_BOLSA_FAMILIA}, {NOVO_BOLSA_FAMILIA}, {AUXILIO_BRASIL}")
+
+        except Exception as e:
+            print("Erro ao processar linha:", linha_valor)
+            print("Erro:", e) 
+    
+    def dados_card_tipo2(linha_valor):
+        try:
+            return {
+                "data": linha_valor[0],
+                "documento": linha_valor[1].strip(),
+                "localidade_aplicacao_recurso": linha_valor[2],
+                "fase_despesa": linha_valor[3],
+                "especie": linha_valor[4],
+                "favorecido": linha_valor[5],
+                "uf_favorecido": linha_valor[6],
+                "valor": linha_valor[7],
+                "ug": linha_valor[8],
+                "unidade_orcamentaria": linha_valor[9],
+                "orgao": linha_valor[10],
+                "orgao_superior": linha_valor[11],
+                "grupo_despesa": linha_valor[12],
+                "elemento_despesa": linha_valor[13],
+                "modalidade_despesa": linha_valor[14],
+                "plano_orcamentario": linha_valor[15],
+                "nome_autor_emenda": linha_valor[16]
+            }
+
+        except Exception as e:
+            print("Erro ao processar linha:", linha_valor)
+            print("Erro:", e)
+
+    def extrair_detalhes_tipo1(titulo):
+        primeira_tabela = pagina.locator(".dados-detalhados").first
+        tabela = primeira_tabela.locator("tbody tr").all()
+
+        detalhes = []
+
+        for linha in tabela:
+            linha_valor = linha.locator("td").all_text_contents()
+            if not linha_valor:
+                continue
+
+            detalhes.append(dados_card_tipo1(titulo, linha_valor))
+
+        return detalhes
+    
+    def extrair_detalhes_tipo2():
+        tabela = pagina.locator("#lista tbody tr").all()
+        detalhes = []
+
+        for linha in tabela:
+            linha_valor = linha.locator("td").all_text_contents()
+            if not linha_valor:
+                continue
+
+            detalhes.append(dados_card_tipo2(linha_valor))
+
+        return detalhes
+    
+    def montar_resultado(nome, cpf, nis, localidade, titulo, valor, detalhes, img):
+        return {
+            "nome": nome,
+            "cpf": cpf,
+            "nis": nis,
+            "location": localidade,
+            "recurso_tipo": titulo,
+            "valor_total_recebido": valor,
+            "detalhes": detalhes,
+            "img_base64": img
+        }
+    
+    def voltar_lista():
+        pagina.go_back()
+        pagina.wait_for_load_state("networkidle")
+        pagina.locator('.item .header').click()
+        pagina.wait_for_timeout(2000)
+
+    def registrar_por_titulo(cards_tipo1, cards_tipo2, nome, cpf, localidade, dados_finais):
+        if len(cards_tipo1) > 0:
+            for card_tipo1 in cards_tipo1:
+                titulo = card_tipo1.locator(".responsive strong").text_content().strip()
+                linhas_card_tipo1 = card_tipo1.locator("tbody tr").all()
+
+                for linha in linhas_card_tipo1:
+                    nis = linha.locator("td").nth(1).text_content().strip()
+                    valor_total_recebido = linha.locator("td").nth(3).text_content().strip()
+                    buttons = linha.locator("td a")
+
+                    abrir_detalhe(buttons)
+                
+
+                    detalhes = extrair_detalhes_tipo1(titulo)
+                        
+
+                    img_64 = converter_base64(titulo)
+
+                    dados_finais.append(montar_resultado(nome, cpf, nis, localidade, titulo, valor_total_recebido, detalhes, img_64))
+
+                    voltar_lista()
+
+        if len(cards_tipo2) > 0:
+            for card_tipo2 in cards_tipo2:
+                titulo = FAVORECIDO_RECURSO
+                texto_valor_recebido = card_tipo2.locator("#gastosDiretos").text_content()
+                valor_total_recebido = texto_valor_recebido.split(":")[-1].strip()
+
+                button = card_tipo2.locator("a")
+
+                abrir_detalhe(button)
+
+                detalhes = extrair_detalhes_tipo2()
+
+                img_64 = converter_base64(titulo)
+
+                dados_finais.append(montar_resultado(nome, cpf, "", localidade, titulo, valor_total_recebido, detalhes, img_64))
+
+                voltar_lista()
+        
+        return dados_finais
 
 
     def gravar_dados(): 
@@ -56,154 +215,8 @@ def rodar_bot(consultar):
         cards_tipo1 = pagina.locator(".form-group .br-table").all()
         cards_tipo2 = pagina.locator(".form-group .row").all()
 
-        if len(cards_tipo1) > 0:
-            for card_tipo1 in cards_tipo1:
-                titulo = card_tipo1.locator(".responsive strong").text_content().strip()
-                linhas_card_tipo1 = card_tipo1.locator("tbody tr").all()
-
-                for linha in linhas_card_tipo1:
-                    nis = linha.locator("td").nth(1).text_content().strip()
-                    valor_total_recebido = linha.locator("td").nth(3).text_content().strip()
-                    buttons = linha.locator("td a")
-
-                    buttons.click()
-                    pagina.wait_for_load_state("networkidle")
-                    
-                    captcha_freeze()
-
-                    primeira_tabela = pagina.locator(".dados-detalhados").first
-                    tabela = primeira_tabela.locator("tbody tr").all()
-                    response = []
-
-                    for linha in tabela:
-                        linha_valor = linha.locator("td").all_text_contents()
-
-                        if not linha_valor:
-                            continue
-
-                        try:
-                            if titulo == AUXILIO_EMERGENCIAL:
-                                dados = {
-                                    "mes_disponibilizacao": linha_valor[0],
-                                    "parcela": linha_valor[1],
-                                    "uf": linha_valor[2],
-                                    "municipio": linha_valor[3],
-                                    "enquadramento": linha_valor[4],
-                                    "valor": linha_valor[5],
-                                    "observacao": linha_valor[6]
-                                }
-
-                            elif titulo == BENEFICIARIO_BOLSA_FAMILIA:
-                                dados = {
-                                    "mes_folha": linha_valor[0],
-                                    "mes_referencia": linha_valor[1],
-                                    "uf": linha_valor[2],
-                                    "municipio": linha_valor[3],
-                                    "quantidade_dependentes": linha_valor[4],
-                                    "valor": linha_valor[5]
-                                }
-
-                            else:
-                                try:
-                                    dados = {
-                                        "mes_folha": linha_valor[0],
-                                        "mes_referencia": linha_valor[1],
-                                        "uf": linha_valor[2],
-                                        "municipio": linha_valor[3],
-                                        "valor_parcela": linha_valor[4]
-                                    }
-                                except Exception as e:                 
-                                    print(f"Dados nao correspondente para {AUXILIO_EMERGENCIAL}, {BENEFICIARIO_BOLSA_FAMILIA}, {NOVO_BOLSA_FAMILIA}, {AUXILIO_BRASIL}")
-                            
-                            response.append(dados)
-                        except Exception as e:
-                            print("Erro ao processar linha:", linha_valor)
-                            print("Erro:", e)
-
-                    img_64 = converter_base64(titulo)
-
-                    dados_finais.append({
-                        "nome": nome,
-                        "cpf": cpf,
-                        "nis": nis,
-                        "location": localidade,
-                        "recurso_tipo": titulo,
-                        "valor_total_recebido": valor_total_recebido,
-                        "detalhes": response,
-                        "img_base64": img_64
-                    })
-
-                    pagina.go_back()
-                    pagina.wait_for_load_state("networkidle")
-                    pagina.locator('.item .header').click()
-                    pagina.wait_for_timeout(2000)
-
-        if len(cards_tipo2) > 0:
-            for card_tipo2 in cards_tipo2:
-                titulo = FAVORECIDO_RECURSO
-                texto_valor_recebido = card_tipo2.locator("#gastosDiretos").text_content()
-                valor_total_recebido = texto_valor_recebido.split(":")[-1].strip()
-
-                button = card_tipo2.locator("a")
-                button.click()
-                pagina.wait_for_load_state("networkidle")
-                
-                captcha_freeze()
-
-                tabela = pagina.locator("#lista tbody tr").all()
-                response = []
-
-                for linha in tabela:
-                    linha_valor = linha.locator("td").all_text_contents()
-
-                    if not linha_valor:
-                        continue
-
-                    try:
-                        dados = {
-                            "data": linha_valor[0],
-                            "documento": linha_valor[1].strip(),
-                            "localidade_aplicacao_recurso": linha_valor[2],
-                            "fase_despesa": linha_valor[3],
-                            "especie": linha_valor[4],
-                            "favorecido": linha_valor[5],
-                            "uf_favorecido": linha_valor[6],
-                            "valor": linha_valor[7],
-                            "ug": linha_valor[8],
-                            "unidade_orcamentaria": linha_valor[9],
-                            "orgao": linha_valor[10],
-                            "orgao_superior": linha_valor[11],
-                            "grupo_despesa": linha_valor[12],
-                            "elemento_despesa": linha_valor[13],
-                            "modalidade_despesa": linha_valor[14],
-                            "plano_orcamentario": linha_valor[15],
-                            "nome_autor_emenda": linha_valor[16]
-                        }
-
-                        response.append(dados)
-
-                    except Exception as e:
-                        print("Erro ao processar linha:", linha_valor)
-                        print("Erro:", e)
-
-                img_64 = converter_base64(titulo)
-
-                dados_finais.append({
-                    "nome": nome,
-                    "cpf": cpf,
-                    "nis": "",
-                    "location": localidade,
-                    "recurso_tipo": titulo,
-                    "valor_total_recebido": valor_total_recebido,
-                    "detalhes": response,
-                    "img_base64": img_64
-                })
-
-                pagina.go_back()
-                pagina.wait_for_load_state("networkidle")                
-                pagina.locator('.item .header').click()
-                pagina.wait_for_timeout(2000)
-
+        dados_finais = registrar_por_titulo(cards_tipo1, cards_tipo2, nome, cpf, localidade, dados_finais)
+        
         return dados_finais
 
     with sync_playwright() as pw:
@@ -239,8 +252,8 @@ def rodar_bot(consultar):
             links_nome = pagina.locator("#resultados a.link-busca-nome").first
 
             nome_encontrado = links_nome.text_content().strip().upper()
-            cpf_encontrado = int(pagina.locator("#countResultados").text_content())
-            nis_encontrado = int(pagina.locator("#countResultados").text_content())
+            cpf_encontrado = int(pagina.locator("#countResultados").text_content().replace(".", "").strip())
+            nis_encontrado = int(pagina.locator("#countResultados").text_content().replace(".", "").strip())
 
             if not (
                 nome_encontrado == consultar_limpo or
